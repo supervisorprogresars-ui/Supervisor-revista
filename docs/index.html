@@ -52,6 +52,21 @@ margin-top:10px;
 border-radius:8px;
 }
 
+.alerta{
+background:#ffcccc;
+padding:10px;
+margin-top:10px;
+border-radius:8px;
+font-weight:bold;
+}
+
+.panel{
+background:white;
+padding:10px;
+margin-top:15px;
+border-radius:8px;
+}
+
 img{
 width:100%;
 margin-top:5px;
@@ -73,15 +88,19 @@ REVISTA DISCIPLINARIA SUPERVISIÓN
 <label>Supervisor:</label>
 
 <select id="supervisor">
+
 <option>García</option>
 <option>Plata</option>
+
 </select>
 
 <label>Puesto:</label>
-<input type="text" id="puesto">
+
+<select id="puesto"></select>
 
 <label>Guarda:</label>
-<input type="text" id="guarda">
+
+<select id="guarda"></select>
 
 <label>Falencias:</label>
 
@@ -91,15 +110,21 @@ REVISTA DISCIPLINARIA SUPERVISIÓN
 <label><input type="checkbox" value="Puerta abierta"> Puerta abierta</label>
 <label><input type="checkbox" value="Falta elementos"> Falta elementos</label>
 
-<label>Llamado:</label>
+<label>Llamado de atención:</label>
 
 <select id="llamado">
+
 <option value="">Sin llamado</option>
 <option>Presentación personal</option>
 <option>Uso del celular</option>
 <option>Puesto abandonado</option>
 <option>Incumplimiento funciones</option>
+
 </select>
+
+<label>Foto (si aplica):</label>
+
+<input type="file" id="foto" accept="image/*">
 
 <label>Observaciones:</label>
 
@@ -109,40 +134,131 @@ REVISTA DISCIPLINARIA SUPERVISIÓN
 Registrar Revista
 </button>
 
+<button onclick="generarInforme()">
+Generar Informe
+</button>
+
+<button onclick="enviarWhatsApp()">
+Enviar Informe WhatsApp
+</button>
+
 <button onclick="verHistorial()">
 Ver Historial
 </button>
 
-<button onclick="enviarInforme()">
-Enviar Informe WhatsApp
+<button onclick="generarLlamadoEscrito()">
+Generar Llamado Escrito
 </button>
+
+<div id="alertas"></div>
 
 <div id="historial"></div>
 
+<div class="panel">
+
+<h3>📊 LLAMADOS ACUMULADOS</h3>
+
+<div id="panelLlamados"></div>
+
+<button onclick="verLlamados()">
+Actualizar Llamados
+</button>
+
+<h3>📊 FALENCIAS POR PUESTO</h3>
+
+<div id="panelFalencias"></div>
+
+<button onclick="verFalenciasPuesto()">
+Actualizar Falencias
+</button>
+
 </div>
 
-<script type="module">
+<div class="panel">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore,
-collection,
-addDoc,
-getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<h3>➕ Agregar Puesto</h3>
 
-const firebaseConfig = {
-apiKey: "AIzaSyAFm4rV5IMqnF8-cOCZQYICuus9zE2PR-E",
-authDomain: "revista-supervision.firebaseapp.com",
-projectId: "revista-supervision",
-storageBucket: "revista-supervision.firebasestorage.app",
-messagingSenderId: "989271819941",
-appId: "1:989271819941:web:00debe4b19cb101d8baf4c"
-};
+<input type="text" id="nuevoPuesto">
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+<button onclick="agregarPuesto()">
+Agregar Puesto
+</button>
 
-async function guardar(){
+<h3>➕ Agregar Guarda</h3>
+
+<input type="text" id="nuevoGuarda">
+
+<button onclick="agregarGuarda()">
+Agregar Guarda
+</button>
+
+</div>
+
+</div>
+
+<script>
+
+let puestos =
+JSON.parse(localStorage.getItem("puestos")) || [];
+
+let guardas =
+JSON.parse(localStorage.getItem("guardas")) || [];
+
+function cargarListas(){
+
+let p=document.getElementById("puesto");
+p.innerHTML="";
+puestos.forEach(x=>{
+p.innerHTML+=`<option>${x}</option>`;
+});
+
+let g=document.getElementById("guarda");
+g.innerHTML="";
+guardas.forEach(x=>{
+g.innerHTML+=`<option>${x}</option>`;
+});
+
+}
+
+function agregarPuesto(){
+
+let nuevo=document.getElementById("nuevoPuesto").value;
+
+if(nuevo){
+
+puestos.push(nuevo);
+
+localStorage.setItem(
+"puestos",
+JSON.stringify(puestos)
+);
+
+cargarListas();
+
+}
+
+}
+
+function agregarGuarda(){
+
+let nuevo=document.getElementById("nuevoGuarda").value;
+
+if(nuevo){
+
+guardas.push(nuevo);
+
+localStorage.setItem(
+"guardas",
+JSON.stringify(guardas)
+);
+
+cargarListas();
+
+}
+
+}
+
+function guardar(){
 
 let supervisor=document.getElementById("supervisor").value;
 let puesto=document.getElementById("puesto").value;
@@ -163,35 +279,91 @@ c.checked=false;
 }
 });
 
-await addDoc(
-collection(db,"revistas"),
-{
+let conteo=
+JSON.parse(localStorage.getItem("llamados")) || {};
+
+if(llamado){
+
+conteo[guarda]=(conteo[guarda] || 0)+1;
+
+localStorage.setItem(
+"llamados",
+JSON.stringify(conteo)
+);
+
+if(conteo[guarda]>=3){
+
+document.getElementById("alertas").innerHTML+=
+
+`<div class="alerta">
+
+⚠️ ALERTA DISCIPLINARIA<br>
+
+Guarda: ${guarda}<br>
+
+Total llamados: ${conteo[guarda]}<br>
+
+Realizar llamado escrito disciplinario.
+
+</div>`;
+
+}
+
+}
+
+let fotoInput=document.getElementById("foto");
+
+let foto=fotoInput.files[0];
+
+let reader=new FileReader();
+
+reader.onload=function(){
+
+let imgData=reader.result || "";
+
+let datos=
+JSON.parse(localStorage.getItem("revistas")) || [];
+
+datos.push({
+
 supervisor,
 puesto,
 guarda,
 falencias,
 llamado,
 obs,
-fecha
-}
+fecha,
+foto:imgData
+
+});
+
+localStorage.setItem(
+"revistas",
+JSON.stringify(datos)
 );
 
-alert("Revista guardada en la nube");
+alert("Revista guardada");
+
+};
+
+if(foto){
+reader.readAsDataURL(foto);
+}else{
+reader.onload();
+}
 
 }
 
-async function verHistorial(){
+function verHistorial(){
 
 let div=document.getElementById("historial");
 
 div.innerHTML="";
 
-const querySnapshot =
-await getDocs(collection(db,"revistas"));
+let datos=
+JSON.parse(localStorage.getItem("revistas")) || [];
 
-querySnapshot.forEach(doc=>{
-
-let r=doc.data();
+datos.forEach(r=>{
 
 div.innerHTML+=`
 
@@ -214,6 +386,10 @@ ${r.llamado || "Sin llamado"}<br>
 <b>Observaciones:</b>
 ${r.obs}<br>
 
+${r.foto ?
+`<img src="${r.foto}">`
+:""}
+
 </div>
 
 `;
@@ -222,27 +398,135 @@ ${r.obs}<br>
 
 }
 
-async function enviarInforme(){
+function verLlamados(){
 
-let texto="📋 INFORME DIARIO\n\n";
+let datos =
+JSON.parse(localStorage.getItem("llamados")) || {};
 
-const querySnapshot =
-await getDocs(collection(db,"revistas"));
+let html="";
 
-querySnapshot.forEach(doc=>{
+for(let nombre in datos){
 
-let r=doc.data();
+let total = datos[nombre];
 
-texto+=
-"Hora: "+r.fecha+"\n"+
-"Puesto: "+r.puesto+"\n"+
-"Guarda: "+r.guarda+"\n"+
-"Falencias: "+r.falencias.join(", ")+"\n"+
-"Observaciones: "+r.obs+"\n\n";
+if(total >=3){
+
+html +=
+nombre + " → " +
+total +
+" llamados ⚠️ LLAMADO ESCRITO<br>";
+
+}else{
+
+html +=
+nombre + " → " +
+total +
+" llamados<br>";
+
+}
+
+}
+
+document.getElementById(
+"panelLlamados"
+).innerHTML = html;
+
+}
+
+function verFalenciasPuesto(){
+
+let datos =
+JSON.parse(localStorage.getItem("revistas")) || [];
+
+let conteo = {};
+
+datos.forEach(r=>{
+
+if(r.falencias.length > 0){
+
+conteo[r.puesto] =
+(conteo[r.puesto] || 0) +
+r.falencias.length;
+
+}
 
 });
 
-let telefono="573235847312";
+let html="";
+
+for(let puesto in conteo){
+
+html +=
+puesto +
+" → " +
+conteo[puesto] +
+" falencias<br>";
+
+}
+
+document.getElementById(
+"panelFalencias"
+).innerHTML = html;
+
+}
+
+function generarInforme(){
+
+let datos=
+JSON.parse(localStorage.getItem("revistas")) || [];
+
+let texto="📋 INFORME SUPERVISIÓN\n\n";
+
+datos.forEach(r=>{
+
+texto+=
+
+"Hora: "+r.fecha+"\n"+
+"Supervisor: "+r.supervisor+"\n"+
+"Puesto: "+r.puesto+"\n"+
+"Guarda: "+r.guarda+"\n\n"+
+
+"Falencias detectadas:\n"+
+(r.falencias.length ?
+r.falencias.join("\n")
+:"Sin falencias")+"\n\n"+
+
+"Acción correctiva recomendada:\n"+
+"Verificar condiciones del puesto y corregir inmediatamente.\n\n"+
+
+"Llamado:\n"+
+(r.llamado || "Sin llamado")+"\n\n"+
+
+"Observaciones:\n"+
+r.obs+"\n\n"+
+
+"----------------------\n\n";
+
+});
+
+texto+=
+
+"Autorizado por:\n\n"+
+"Camilo Suárez\n"+
+"Representante Legal\n\n"+
+"Adolfo Silva\n"+
+"Coordinador de Operaciones";
+
+localStorage.setItem(
+"informe",
+texto
+);
+
+alert("Informe generado");
+
+}
+
+function enviarWhatsApp(){
+
+let texto=
+localStorage.getItem("informe") || "";
+
+let telefono="573000000000";
 
 let url=
 "https://wa.me/"+telefono+
@@ -252,9 +536,61 @@ window.open(url);
 
 }
 
-window.guardar=guardar;
-window.verHistorial=verHistorial;
-window.enviarInforme=enviarInforme;
+function generarLlamadoEscrito(){
+
+let llamados =
+JSON.parse(localStorage.getItem("llamados")) || {};
+
+let texto="📄 LLAMADOS ESCRITOS REQUERIDOS\n\n";
+
+for(let nombre in llamados){
+
+if(llamados[nombre] >=3){
+
+texto+=
+
+"GUARDA: "+nombre+"\n"+
+"TOTAL LLAMADOS: "+llamados[nombre]+"\n\n"+
+
+"Motivo:\n"+
+"Acumulación de llamados verbales.\n\n"+
+
+"Supervisor Responsable:\n"+
+"________________________\n\n"+
+
+"Autorizado por:\n\n"+
+
+"Camilo Suárez\n"+
+"Representante Legal\n\n"+
+
+"Adolfo Silva\n"+
+"Coordinador de Operaciones\n\n"+
+
+"--------------------------\n\n";
+
+}
+
+}
+
+if(texto === "📄 LLAMADOS ESCRITOS REQUERIDOS\n\n"){
+
+alert("No hay guardas con 3 llamados aún");
+
+return;
+
+}
+
+let telefono="573000000000";
+
+let url=
+"https://wa.me/"+telefono+
+"?text="+encodeURIComponent(texto);
+
+window.open(url);
+
+}
+
+cargarListas();
 
 </script>
 
